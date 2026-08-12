@@ -119,3 +119,90 @@ async def create_task(task: TaskCreate):
         "title": new_task[1],
         "done": new_task[2]
     }
+
+class TaskUpdate(BaseModel):
+    title: str
+    done: bool
+
+@app.put("/tasks/{id}")
+async def update_task(id: int, updated: TaskUpdate):
+
+    if not updated.title.strip():
+        return JSONResponse(
+            status_code=400,
+            content={"error": "Title must not be empty"}
+        )
+
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+
+    cursor.execute(
+        "SELECT id FROM tasks WHERE id = ?",
+        (id,)
+    )
+
+    task = cursor.fetchone()
+
+    if task is None:
+        conn.close()
+        return JSONResponse(
+            status_code=404,
+            content={"error": "Task not found"}
+        )
+
+    cursor.execute(
+        """
+        UPDATE tasks
+        SET title = ?, done = ?
+        WHERE id = ?
+        """,
+        (updated.title, updated.done, id)
+    )
+
+    conn.commit()
+
+    cursor.execute(
+        "SELECT id, title, done FROM tasks WHERE id = ?",
+        (id,)
+    )
+
+    updated_task = cursor.fetchone()
+
+    conn.close()
+
+    return {
+        "id": updated_task[0],
+        "title": updated_task[1],
+        "done": updated_task[2]
+    }
+
+@app.delete("/tasks/{id}", status_code=204)
+async def delete_task(id: int):
+
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+
+    cursor.execute(
+        "SELECT id FROM tasks WHERE id = ?",
+        (id,)
+    )
+
+    task = cursor.fetchone()
+
+    if task is None:
+        conn.close()
+        return JSONResponse(
+            status_code=404,
+            content={"error": "Task not found"}
+        )
+
+    cursor.execute(
+        "DELETE FROM tasks WHERE id = ?",
+        (id,)
+    )
+
+    conn.commit()
+    conn.close()
+
+    return Response(status_code=204)
+
