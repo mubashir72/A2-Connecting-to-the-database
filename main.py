@@ -80,3 +80,42 @@ async def get_task(id: int):
         )
 
     return dict(task)
+
+class TaskCreate(BaseModel):
+    title: str
+
+@app.post("/tasks", status_code=201)
+async def create_task(task: TaskCreate):
+
+    if not task.title.strip():
+        return JSONResponse(
+            status_code=400,
+            content={"error": "Title is required and cannot be empty"}
+        )
+
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+
+    cursor.execute(
+        "INSERT INTO tasks (title, done) VALUES (?, ?)",
+        (task.title, False)
+    )
+
+    new_id = cursor.lastrowid
+
+    conn.commit()
+
+    cursor.execute(
+        "SELECT id, title, done FROM tasks WHERE id = ?",
+        (new_id,)
+    )
+
+    new_task = cursor.fetchone()
+
+    conn.close()
+
+    return {
+        "id": new_task[0],
+        "title": new_task[1],
+        "done": new_task[2]
+    }
